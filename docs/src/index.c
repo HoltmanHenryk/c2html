@@ -58,7 +58,7 @@ int main(void) {
         for(int i = 5; i > 0; --i) {
             const char *tag = text_format("h%d", i);
             push_ftag(tag);
-            add_text("h%d\n", i);
+            add_text("h%d", i);
             pop_ftag(tag);
         }
         br();
