@@ -1,19 +1,19 @@
 # c2html
 
-A static html page generator made in C
+A C library that "compiles" to a static html page.
 
 
 
 ## Usage of the library:
 
-I prefer writing c than html, and doing so, it also allows me to use some C features in to making html 
+The point of this is to allow you to use regular programming language features whilist making a static html page, such as loops, scopes, loading and formatting strings.
 
-This library DOES NOT generate css and / or Javascript, that is up to the user.
+This library DOES NOT generate css and / or Javascript `yet`, that is up to the user.
 
 
 ## Getting started
 
-The setup of the library is very easily explainable, and you can pretty much just figure everything out by looking at the examples at docs/ or the github-pages deploy.
+The setup and use of the library is very easily explainable, and you can pretty much just figure everything out by looking at the examples at `docs/src/index.c` or the github-pages deploy.
 Here is the most basic setup of the library usage;
 
 ```c 
@@ -21,39 +21,73 @@ Here is the most basic setup of the library usage;
 
 int main(void) {
 
-    const char *css_file = "style.css";
-    const char *js_file = NULL;
-    /* [OPTIONAL] path to your css and and js files */
+    c2html_init("index.html",
+                .css_path = "style.css",
+                .js_path = "script.js",
+                .title = "Page title");
+    /* All fields, except the output path (index.html) are optional, and default to being empty */
 
-    C2HTML_OBJ(index, css_file, js_file);
-    /* [MANDATORY] name of the c2html object that describes the page, and passes the css and js file paths, you're left with a pointer named "index" in this case */
+    /* You can do imediate mode, OpenGL 1.1 style */
 
-    setup_file(&index, "Page title goes here", "../path/where/the/page/is/saved");
-    /* [MANDATORY] */
+    push_tag(h1); /* opens the tag */
+    add_text("Hello, World!");
+    pop_tag(h1); /* closes the tag */
+    /* note the lack of quotation marks around the <h1> tag */
 
-    h1("Hello, World!");
+    with_tag(h3) {
+        add_text(text_format("Page made with c2html version %d.%d.%d",
+                C2HTML_VERSION_MAJOR, C2HTML_VERSION_MINOR, C2HTML_VERSION_PATCH));
+    }
 
-    end_file(&index);
-    /* [MANDATORY] */
+    /* with_tag automatically closes the tag on scope end */
 
-    return 0;
+    br();
+
+    with_tag(span, .css_class = "BlueText") add_text("You can even do inline scope");
+
+    br_repeat(5);
+
+    /* You can generate your own tags from strings as such */
+
+    for(int i = 5; i > 0; --i) {
+        
+        const char *tag = text_format("h%d", i);
+        push_ftag(tag); /* accepts a cstr */
+            add_text("size: h%d", i);
+        pop_ftag(tag);
+    }
+    br();
+
+    /* "inline" tags, or tags that dont have a closing pair can be used as such: */
+
+    push_tag(hr, .no_close = true); 
+
+    push_tag(button, .id = "buttonId", .css_class = "buttonClass");
+    add_text("Click this");
+    pop_tag(button);
+
+    c2html_end_file();
 }
+
 
 ```
 
 
 ## Structure of the library
 
-- One .c file = 1 html file
+### One .c file = 1 html file
 
-Each c source file should equal one html page.
+While you can make one c file output more than one page, for organization its recomended that each html file gets its own c file
 
-- Do not care about memory alocations
 
-Each file will be compiled on its own, and run to create its respective html file, the lifetime of each program will idealy be under a second
-and its all free'd at the end, so leak as much memory as you need.
+### Minimal error checking and memory management
 
-- The generated html dosen't need to be pretty
+This is meant to run once and in a assisted environment. Failures to open, write and file operations are not error checked, neither are paths and memory managed, run this on a trusted environment.
+
+Each file will be compiled on its own, and run to create its respective html file, the lifetime of each program will idealy be under a second.
+
+### The generated html isn't pretty
 
 You're meant to look at the C code, not the generated html one.
+What did you expect from a code generator?
 
