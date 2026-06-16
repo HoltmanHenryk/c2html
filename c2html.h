@@ -22,12 +22,14 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 
 #define C2HTML_VERSION_MAJOR 2
 #define C2HTML_VERSION_MINOR 0
-#define C2HTML_VERSION_PATCH 0
+#define C2HTML_VERSION_PATCH 1
 
 static FILE *c2html_outfile = NULL;
 static char *__filename = NULL;
 static char *js_file = NULL;
 static char *css_file = NULL;
+
+static size_t ident_count = 0;
 
 typedef struct {
     const char *css_path;
@@ -134,7 +136,7 @@ static inline void c2html_print_file_size(long size, const char *filename) {
 
 
 static inline void c2html_end_file() {
-    fprintf(c2html_outfile, "\n\n\n<script src=\"%s\" defer></script>", js_file);
+    if(js_file) fprintf(c2html_outfile, "\n\n\n<script src=\"%s\" defer></script>", js_file);
     fprintf(c2html_outfile, "\n</body>\n");
     fprintf(c2html_outfile, "</html>\n");
 
@@ -167,15 +169,25 @@ static inline void c2html_write_params(c2html_tag_params param) {
     if (param.type) fprintf(c2html_outfile, " type=\"%s\"", param.type);
 }
 
+static inline void _c2html_write_ident(const char *fmt, ...) {
+    va_list args; va_start(args, fmt);
+
+    for(size_t i = 0; i < ident_count; ++i){
+        fprintf(c2html_outfile, "    ");
+    }
+    vfprintf(c2html_outfile, fmt, args);
+    va_end(args);
+}
+
 #define C2HTML_CONCAT_INNER(a, b) a##b
 #define C2HTML_CONCAT(a, b) C2HTML_CONCAT_INNER(a, b)
 
 #define push_tag(tag, ...)                    \
     do {                                      \
         c2html_tag_params _p = {__VA_ARGS__}; \
-        fprintf(c2html_outfile, "<" #tag);    \
+        fprintf(c2html_outfile, "\n<" #tag);    \
         c2html_write_params(_p);              \
-        fprintf(c2html_outfile, ">\n");       \
+        fprintf(c2html_outfile, ">");       \
     } while (0)
 
 #define pop_tag(tag) fprintf(c2html_outfile, "</" #tag ">\n")
@@ -190,15 +202,24 @@ static inline void push_ftag_opt(const char *tag, c2html_tag_params opt) {
 #define push_ftag(tag, ...) push_ftag_opt(tag, (c2html_tag_params){__VA_ARGS__})
 
 static inline void pop_ftag(const char *tag) {
-    fprintf(c2html_outfile, "</%s>", tag);
+    fprintf(c2html_outfile, "</%s>\n", tag);
 }
 
-#define with_tag(tag, ...)                                                                            \
-    c2html_tag_params __attribute__((unused)) C2HTML_CONCAT(_params_##tag, __LINE__) = {__VA_ARGS__}; \
-    fprintf(c2html_outfile, "<" #tag);                                                                \
-    c2html_write_params(C2HTML_CONCAT(_params_##tag, __LINE__));                                      \
-    fprintf(c2html_outfile, ">");                                                                     \
-    for (struct { const char *name; c2html_tag_params *p; } _state = {#tag, &C2HTML_CONCAT(_params_##tag, __LINE__)}; _state.name != NULL; (!_state.p->no_close ? fprintf(c2html_outfile, "</%s>\n", _state.name) : 0), _state.name = NULL)
+
+#define with_tag(tag, ...) \
+    for (struct { c2html_tag_params params; const char *name; int entered; } \
+         C2HTML_CONCAT(_state_, __LINE__) = { {__VA_ARGS__}, #tag, 0 }; \
+         \
+         !C2HTML_CONCAT(_state_, __LINE__).entered ? \
+            (_c2html_write_ident("\n<" #tag), \
+             c2html_write_params(C2HTML_CONCAT(_state_, __LINE__).params), \
+             _c2html_write_ident(">\n"), \
+             C2HTML_CONCAT(_state_, __LINE__).entered = 1) : 0; \
+         \
+         (!C2HTML_CONCAT(_state_, __LINE__).params.no_close ? \
+             _c2html_write_ident("</%s>\n", C2HTML_CONCAT(_state_, __LINE__).name) : 0) \
+        )
+
 
 static inline void add_text(const char *format, ...) {
     va_list args;

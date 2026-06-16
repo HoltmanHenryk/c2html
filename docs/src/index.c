@@ -8,7 +8,7 @@ int main(void) {
                 .title = "Sample page");
 
     with_tag(center) {
-        with_tag(h1) { add_text("Welcome to the eample page using c2html."); }
+        with_tag(h1) { add_text("Welcome to the sample page using c2html."); }
         with_tag(h3) { 
             add_text(text_format("with c2html version %d.%d.%d",
                         C2HTML_VERSION_MAJOR, C2HTML_VERSION_MINOR, C2HTML_VERSION_PATCH));
@@ -58,7 +58,7 @@ int main(void) {
         for(int i = 5; i > 0; --i) {
             const char *tag = text_format("h%d", i);
             push_ftag(tag);
-            add_text("h%d\n", i);
+            add_text("h%d", i);
             pop_ftag(tag);
         }
         br();
