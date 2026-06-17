@@ -9,13 +9,14 @@ int main(void) {
 
     with_tag(center) {
         with_tag(h1) { add_text("Welcome to the sample page using c2html."); }
+
         with_tag(h3) { 
             add_text(text_format("with c2html version %d.%d.%d",
                         C2HTML_VERSION_MAJOR, C2HTML_VERSION_MINOR, C2HTML_VERSION_PATCH));
         }
 
         push_tag(div heigth=500px, .css_class = "spin");
-        push_tag(img, .src = "images/gd_my_passion.webp", .width = 300);
+        push_tag(img, .src = "images/gd_my_passion.webp", .width = "300");
         pop_tag(div);
 
         br_repeat(3);
@@ -30,9 +31,9 @@ int main(void) {
     br();
 
     with_tag(center) {
-        add_text("dis webpag e is  ");
+        add_text("dis webpag e is ");
         with_tag(span, .css_class = "String") add_text("AMAZING");
-        add_text("  cuz is maed with ");
+        add_text(" cuz is maed with ");
         br();
         with_tag(span, .css_class = "StorageClass") { add_text("C "); }
         with_tag(strong) add_text("(epic language)");
@@ -41,10 +42,17 @@ int main(void) {
         with_tag(span, .css_class = "big") add_text("My reaction to this page:");
         br();
 
-        push_tag(video controls, .src = "images/video.mp4", .type = "video/mp4", .id = "myReaction", .width = 300, .height = 350);
-        pop_tag(video);
 
-        push_tag(hr, .no_close = true);
+        with_tag(video,
+                .CUSTOM_ATTR(controls),
+                .src = "images/video.mp4",
+                .type = "video/mp4",
+                .id = "myReaction",
+                .width = "300", .height = "350",
+                .title = "sausages, meat and and ice cubes with faces sing inside a fridge") {}
+
+
+        push_tag(hr, .no_close = true, .CUSTOM_ATTR(custom_attr = "true"));
 
         with_tag(p) add_text("For loop using add_text(), and text_format()");
         br();
@@ -81,9 +89,24 @@ int main(void) {
     push_tag(hr, .no_close = true);
 
     with_tag(center) {
-        push_tag(img, .width = 150, .src = "images/underconstruction.gif");
+        push_tag(img, .width = "150", .src = "images/underconstruction.gif", .title = "man paints sign that reads under construction");
+        
+        br();
+
+
+        raw(
+            <svg xmlns="http://w3.org" viewBox="0 0 200 200" width="100" height="100">
+            <circle cx="100" cy="100" r="80" fill="#4A90E2" stroke="#357ABD" stroke-width="4" />
+            <text x="100" y="105" font-family="Arial, sans-serif" font-size="18" fill="#FFFFFF" font-weight="bold" text-anchor="middle" dominant-baseline="middle">
+            an amazing raw svg
+            </text>
+            </svg>
+        );
+
+
     }
 
+    
     c2html_end_file();
     return 0;
 }
