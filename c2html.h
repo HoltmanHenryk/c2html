@@ -21,8 +21,8 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 #include <time.h>
 
 #define C2HTML_VERSION_MAJOR 2
-#define C2HTML_VERSION_MINOR 0
-#define C2HTML_VERSION_PATCH 1
+#define C2HTML_VERSION_MINOR 1
+#define C2HTML_VERSION_PATCH 0
 
 static FILE *c2html_outfile = NULL;
 static char *__filename = NULL;
@@ -30,6 +30,7 @@ static char *js_file = NULL;
 static char *css_file = NULL;
 
 static size_t ident_count = 0;
+static size_t raw_blocks_count = 0;
 
 typedef struct {
     const char *css_path;
@@ -84,7 +85,7 @@ static inline void c2html_init_opt(const char *file, c2html_init_opt_args opt) {
         snprintf(version_str, sizeof(version_str), "GCC %d.%d.%d",
                 __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
 #else
-        snprintf(version_str, sizeof(version_str), "A unknown compiler");
+        snprintf(version_str, sizeof(version_str), "A unknown (likely unsuported) compiler");
 #endif
 
         fprintf(c2html_outfile, "%s\n", version_str);
@@ -94,12 +95,12 @@ static inline void c2html_init_opt(const char *file, c2html_init_opt_args opt) {
 
     fprintf(c2html_outfile, "<!DOCTYPE html>\n");
     fprintf(c2html_outfile, "<head>\n");
-    fprintf(c2html_outfile, "<meta charset=\"utf-8\" />\n");
-    fprintf(c2html_outfile, "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n");
+    fprintf(c2html_outfile, "    <meta charset=\"utf-8\" />\n");
+    fprintf(c2html_outfile, "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n");
 
-    if (opt.title) fprintf(c2html_outfile, "<title>%s</title>\n", opt.title);
+    if (opt.title) fprintf(c2html_outfile, "    <title>%s</title>\n", opt.title);
 
-    if (opt.css_path) fprintf(c2html_outfile, "<link href=\"%s\" rel=\"stylesheet\">\n", opt.css_path);
+    if (opt.css_path) fprintf(c2html_outfile, "    <link href=\"%s\" rel=\"stylesheet\">\n", opt.css_path);
 
     fprintf(c2html_outfile, "</head>\n");
 
@@ -142,6 +143,9 @@ static inline void c2html_end_file() {
 
     fclose(c2html_outfile);
 
+    printf("\n\nA total of %zu raw block(s) were inserted.\n", raw_blocks_count);
+
+
     long size = c2html_get_file_size(__filename);
     c2html_print_file_size(size, __filename);
 }
@@ -151,22 +155,38 @@ typedef struct {
     const char *id;
     const char *src;
     const char *href;
-    const double width;
-    const double height;
+    const char *width;
+    const char *height;
     const char *on_click;
     const char *type;
+    const char *alt;
+    const char *title;
+    const char *value;
+    const char *style;
+    const char *custom_attr;
+
+
     bool no_close;
 
 } c2html_tag_params;
 
+#define CUSTOM_ATTR(attr) custom_attr = #attr
+
 static inline void c2html_write_params(c2html_tag_params param) {
+
+    if (param.custom_attr) fprintf(c2html_outfile, " %s", param.custom_attr);
+
     if (param.css_class) fprintf(c2html_outfile, " class=\"%s\"", param.css_class);
     if (param.id) fprintf(c2html_outfile, " id=\"%s\"", param.id);
     if (param.src) fprintf(c2html_outfile, " src=\"%s\"", param.src);
     if (param.href) fprintf(c2html_outfile, " href=\"%s\"", param.href);
-    if (param.width) fprintf(c2html_outfile, " width=\"%f\"", param.width);
-    if (param.height) fprintf(c2html_outfile, " height=\"%f\"", param.height);
+    if (param.width) fprintf(c2html_outfile, " width=%s", param.width);
+    if (param.height) fprintf(c2html_outfile, " height=%s", param.height);
     if (param.type) fprintf(c2html_outfile, " type=\"%s\"", param.type);
+    if (param.alt) fprintf(c2html_outfile, " alt=\"%s\"", param.alt);
+    if (param.title) fprintf(c2html_outfile, " title=\"%s\"", param.title);
+    if (param.value) fprintf(c2html_outfile, " value=\"%s\"", param.value);
+    if (param.style) fprintf(c2html_outfile, " style=\"%s\"", param.style);
 }
 
 static inline void _c2html_write_ident(const char *fmt, ...) {
@@ -174,6 +194,7 @@ static inline void _c2html_write_ident(const char *fmt, ...) {
 
     for(size_t i = 0; i < ident_count; ++i){
         fprintf(c2html_outfile, "    ");
+        fflush(c2html_outfile);
     }
     vfprintf(c2html_outfile, fmt, args);
     va_end(args);
@@ -185,12 +206,13 @@ static inline void _c2html_write_ident(const char *fmt, ...) {
 #define push_tag(tag, ...)                    \
     do {                                      \
         c2html_tag_params _p = {__VA_ARGS__}; \
-        fprintf(c2html_outfile, "\n<" #tag);    \
+        _c2html_write_ident("\n<" #tag);    \
         c2html_write_params(_p);              \
         fprintf(c2html_outfile, ">");       \
     } while (0)
 
-#define pop_tag(tag) fprintf(c2html_outfile, "</" #tag ">\n")
+#define pop_tag(tag) fprintf(c2html_outfile, "</" #tag ">")
+
 
 static inline void push_ftag_opt(const char *tag, c2html_tag_params opt) {
 
@@ -213,12 +235,15 @@ static inline void pop_ftag(const char *tag) {
          !C2HTML_CONCAT(_state_, __LINE__).entered ? \
             (_c2html_write_ident("\n<" #tag), \
              c2html_write_params(C2HTML_CONCAT(_state_, __LINE__).params), \
-             _c2html_write_ident(">\n"), \
+             _c2html_write_ident(">"), \
              C2HTML_CONCAT(_state_, __LINE__).entered = 1) : 0; \
          \
          (!C2HTML_CONCAT(_state_, __LINE__).params.no_close ? \
-             _c2html_write_ident("</%s>\n", C2HTML_CONCAT(_state_, __LINE__).name) : 0) \
+             _c2html_write_ident("</%s>", C2HTML_CONCAT(_state_, __LINE__).name) : \
+             _c2html_write_ident("\n")) \
         )
+
+
 
 
 static inline void add_text(const char *format, ...) {
@@ -227,6 +252,24 @@ static inline void add_text(const char *format, ...) {
     vfprintf(c2html_outfile, format, args);
     va_end(args);
 }
+
+static inline void add_comment(const char *fmt, ...) {
+    va_list args; va_start(args, fmt);
+    fprintf(c2html_outfile, "\n<!-- ");
+    vfprintf(c2html_outfile, fmt, args);
+    fprintf(c2html_outfile, " -->\n");
+    va_end(args);
+}
+
+static void add_text_raw(const char *raw) {
+    fprintf(c2html_outfile, "%s", raw);
+}
+
+#define raw(text) raw_blocks_count++;\
+    add_comment("=== RAW BLOCK START ===");\
+    add_text_raw(#text);\
+    add_comment("=== RAW BLOCK END ===");
+
 
 static inline void br() { fprintf(c2html_outfile, "<br>\n"); }
 
